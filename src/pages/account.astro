@@ -380,7 +380,6 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
           <button type="button" id="btn-confirm-delete" disabled class="w-full sm:w-auto px-5 py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-sm transition-colors disabled:bg-gray-300 dark:disabled:bg-slate-700 disabled:text-gray-500 dark:disabled:text-slate-500 disabled:shadow-none">{t['account.confirm_delete']}</button>
         </div>
       </div>
-      </div>
     </div>
     
     <div id="revoke-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
@@ -463,6 +462,17 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      }
+      function safeUrl(url) {
+        if (typeof url !== 'string') return '';
+        const trimmed = url.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return trimmed;
+        try {
+          const parsed = new URL(trimmed);
+          if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return trimmed;
+        } catch {}
+        return '';
       }
       // ===== Custom Dialog Modal System (Alert, Confirm, Prompt) =====
       const dialogModal = document.getElementById('custom-dialog-modal');
@@ -656,9 +666,11 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
           const data = await res.json();
           if (data.success && data.posts.length > 0) {
             container.innerHTML = data.posts.map(post => {
-              const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN');
+              const dateStr = escapeHtml(new Date(post.created_at).toLocaleDateString('zh-CN'));
+              const thumb = safeUrl(post.thumbnail_url);
+              const safePostId = encodeURIComponent(String(post.id));
               return `
-                <a href="/blog/${post.id}" class="group block bg-gray-50 dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition-all overflow-hidden">
+                <a href="/blog/${safePostId}" class="group block bg-gray-50 dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition-all overflow-hidden">
                   <div class="flex flex-col sm:flex-row">
                     <div class="flex-1 p-5">
                       <h3 class="text-lg font-bold text-gray-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1">${escapeHtml(post.title)}</h3>
@@ -668,16 +680,17 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
                         <span>${dateStr}</span>
                       </div>
                       ${post.summary ? `<p class="text-gray-600 dark:text-slate-400 text-sm line-clamp-2">${escapeHtml(post.summary)}</p>` : ''}
-                    ${post.thumbnail_url ? `<div class="sm:w-40 flex-shrink-0 aspect-video sm:aspect-[4/3]"><img src="${post.thumbnail_url}" alt="Blog Cover" class="w-full h-full object-cover sm:rounded-r-2xl" decoding="async" /></div>` : ''}
+                    </div>
+                    ${thumb ? `<div class="sm:w-40 flex-shrink-0 aspect-video sm:aspect-[4/3]"><img src="${escapeHtml(thumb)}" alt="Blog Cover" class="w-full h-full object-cover sm:rounded-r-2xl" decoding="async" /></div>` : ''}
                   </div>
                 </a>
               `;
             }).join('');
           } else {
-            container.innerHTML = `<div class="text-center py-12 text-gray-400"><svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg><p class="text-sm">${i18n.no_bookmarks}</p></div>`;
+            container.innerHTML = `<div class="text-center py-12 text-gray-400"><svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg><p class="text-sm">${escapeHtml(i18n.no_bookmarks)}</p></div>`;
           }
         } catch(e) {
-          container.innerHTML = `<div class="text-center py-12 text-red-400"><p class="text-sm">${i18n.load_failed}</p></div>`;
+          container.innerHTML = `<div class="text-center py-12 text-red-400"><p class="text-sm">${escapeHtml(i18n.load_failed)}</p></div>`;
         }
       }
 
@@ -688,12 +701,15 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
           const data = await res.json();
           if (data.success && data.resources.length > 0) {
             container.innerHTML = data.resources.map(res => {
+              const logo = safeUrl(res.logo_url);
+              const safeResId = encodeURIComponent(String(res.id));
+              const initials = escapeHtml(String(res.name || '').substring(0, 2).toUpperCase());
               return `
                 <div class="group relative bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800 p-6 hover:shadow-xl transition-all duration-500 flex flex-col h-full">
-                  <a href="/resources/${res.id}" class="absolute inset-0 z-0"></a>
+                  <a href="/resources/${safeResId}" class="absolute inset-0 z-0"></a>
                   <div class="flex items-center space-x-4 mb-4 relative z-10 pointer-events-none">
                     <div class="w-12 h-12 rounded-2xl overflow-hidden bg-gray-50 dark:bg-slate-800 flex-shrink-0 flex items-center justify-center border border-gray-100 dark:border-slate-700">
-                      ${res.logo_url ? `<img src="${res.logo_url}" alt="Resource Logo" class="w-full h-full object-cover" />` : `<span class="text-xl font-bold text-gray-300 dark:text-slate-600">${res.name.substring(0, 2).toUpperCase()}</span>`}
+                      ${logo ? `<img src="${escapeHtml(logo)}" alt="Resource Logo" class="w-full h-full object-cover" />` : `<span class="text-xl font-bold text-gray-300 dark:text-slate-600">${initials}</span>`}
                     </div>
                     <div class="flex-1 min-w-0">
                       <h3 class="text-base font-bold text-gray-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${escapeHtml(res.name)}</h3>
@@ -702,20 +718,20 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
                   </div>
                   <p class="text-xs text-gray-500 dark:text-slate-400 line-clamp-2 mb-4 relative z-10 pointer-events-none">${escapeHtml(res.summary || '')}</p>
                   <div class="mt-auto pt-4 border-t border-gray-50 dark:border-slate-800 flex items-center justify-between relative z-10 pointer-events-none">
-                    <span class="text-[10px] text-gray-400 dark:text-slate-500 font-bold">${new Date(res.created_at).toLocaleDateString('zh-CN')}</span>
+                    <span class="text-[10px] text-gray-400 dark:text-slate-500 font-bold">${escapeHtml(new Date(res.created_at).toLocaleDateString('zh-CN'))}</span>
                     <div class="flex items-center space-x-1 text-red-400">
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path></svg>
-                      <span class="text-[10px] font-bold">${res.likes_count || 0}</span>
+                      <span class="text-[10px] font-bold">${Number(res.likes_count || 0)}</span>
                     </div>
                   </div>
                 </div>
               `;
             }).join('');
           } else {
-            container.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400"><svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg><p class="text-sm">${i18n.no_resources}</p></div>`;
+            container.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400"><svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg><p class="text-sm">${escapeHtml(i18n.no_resources)}</p></div>`;
           }
         } catch(e) {
-          container.innerHTML = `<div class="col-span-full text-center py-12 text-red-400"><p class="text-sm">${i18n.load_failed}</p></div>`;
+          container.innerHTML = `<div class="col-span-full text-center py-12 text-red-400"><p class="text-sm">${escapeHtml(i18n.load_failed)}</p></div>`;
         }
       }
 
@@ -729,43 +745,50 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
               const statusColor = c.status === 'resolved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
               const statusText = c.status === 'resolved' ? i18n.complaint_resolved : i18n.complaint_pending;
               let targetLink = '';
-              if(c.target_type === 'blog') targetLink = `/blog/${c.target_id}`;
-              else if(c.target_type === 'resource') targetLink = `/resources/${c.target_id}`;
-              else if(c.target_type === 'news') targetLink = `/news/${c.target_id}`;
+              const safeTargetId = encodeURIComponent(String(c.target_id || ''));
+              if(c.target_type === 'blog') targetLink = `/blog/${safeTargetId}`;
+              else if(c.target_type === 'resource') targetLink = `/resources/${safeTargetId}`;
+              else if(c.target_type === 'news') targetLink = `/news/${safeTargetId}`;
               
               const fullTargetUrl = targetLink ? `${window.location.origin}${targetLink}` : '';
               const mappedReason = i18n.reasons[c.reason] || c.reason;
+              const safeCid = escapeHtml(c.id);
 
               return `
-                <div class="bg-gray-50 dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700" id="complaint-${c.id}">
+                <div class="bg-gray-50 dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700" id="complaint-${safeCid}">
                   <div class="flex justify-between items-start mb-3">
                     <div class="flex items-center space-x-3">
-                      <span class="px-2.5 py-1 text-[10px] font-bold uppercase rounded-md ${statusColor}">${statusText}</span>
-                      <span class="text-xs text-gray-500 dark:text-slate-400">${new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
+                      <span class="px-2.5 py-1 text-[10px] font-bold uppercase rounded-md ${statusColor}">${escapeHtml(statusText)}</span>
+                      <span class="text-xs text-gray-500 dark:text-slate-400">${escapeHtml(new Date(c.created_at).toLocaleDateString('zh-CN'))}</span>
                     </div>
-                    <button onclick="deleteComplaint(${c.id})" class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors">${i18n.complaint_revoke}</button>
+                    <button type="button" data-revoke-id="${safeCid}" class="btn-revoke-complaint text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium transition-colors">${escapeHtml(i18n.complaint_revoke)}</button>
                   </div>
                   <div class="mb-2">
-                    <span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">${i18n.complaint_target}:</span>
-                    <a href="${fullTargetUrl}" target="_blank" class="ml-2 text-sm text-blue-600 dark:text-blue-400 hover:underline break-all">${fullTargetUrl}</a>
+                    <span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">${escapeHtml(i18n.complaint_target)}:</span>
+                    <a href="${escapeHtml(fullTargetUrl)}" target="_blank" rel="noopener noreferrer" class="ml-2 text-sm text-blue-600 dark:text-blue-400 hover:underline break-all">${escapeHtml(fullTargetUrl)}</a>
                   </div>
                   <div class="mb-2">
-                    <span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">${i18n.complaint_reason}:</span>
-                    <span class="ml-2 text-sm text-gray-800 dark:text-slate-200">${mappedReason}</span>
+                    <span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">${escapeHtml(i18n.complaint_reason)}:</span>
+                    <span class="ml-2 text-sm text-gray-800 dark:text-slate-200">${escapeHtml(mappedReason)}</span>
                   </div>
                   <div class="mb-3">
-                    <span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider block mb-1">${i18n.complaint_details}:</span>
-                    <p class="text-sm text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-3 rounded-lg border border-gray-100 dark:border-slate-700 whitespace-pre-wrap">${c.details.replace(/</g, '&lt;')}</p>
+                    <span class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider block mb-1">${escapeHtml(i18n.complaint_details)}:</span>
+                    <p class="text-sm text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-3 rounded-lg border border-gray-100 dark:border-slate-700 whitespace-pre-wrap">${escapeHtml(c.details || '')}</p>
                   </div>
                   ${c.result ? `
                     <div class="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
-                      <span class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider block mb-1">${i18n.complaint_admin_response}:</span>
-                      <p class="text-sm text-gray-700 dark:text-slate-300 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-100 dark:border-green-900/30 whitespace-pre-wrap">${c.result.replace(/</g, '&lt;')}</p>
+                      <span class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider block mb-1">${escapeHtml(i18n.complaint_admin_response)}:</span>
+                      <p class="text-sm text-gray-700 dark:text-slate-300 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-100 dark:border-green-900/30 whitespace-pre-wrap">${escapeHtml(c.result)}</p>
                     </div>
                   ` : ''}
                 </div>
               `;
             }).join('');
+            container.querySelectorAll('.btn-revoke-complaint').forEach(btn => {
+              btn.addEventListener('click', () => {
+                window.deleteComplaint(btn.getAttribute('data-revoke-id'));
+              });
+            });
           } else {
             container.innerHTML = `<div class="text-center py-12 text-gray-400"><svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><p class="text-sm">${i18n.no_complaints}</p></div>`;
           }
@@ -995,14 +1018,19 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
                     </div>
                     <div>
-                      <h4 class="text-sm font-semibold text-gray-900 dark:text-slate-100">${pk.name}</h4>
-                      <p class="text-xs text-gray-400 dark:text-slate-500">${createdDate}</p>
+                      <h4 class="text-sm font-semibold text-gray-900 dark:text-slate-100">${escapeHtml(pk.name)}</h4>
+                      <p class="text-xs text-gray-400 dark:text-slate-500">${escapeHtml(createdDate)}</p>
                     </div>
                   </div>
-                  <button type="button" onclick="deletePasskey('${pk.id}')" class="px-2.5 py-1 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-all">${i18n.delete || '删除'}</button>
+                  <button type="button" data-passkey-id="${escapeHtml(pk.id)}" class="btn-delete-passkey px-2.5 py-1 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-all">${escapeHtml(i18n.delete || '删除')}</button>
                 </div>
               `;
             }).join('');
+            container.querySelectorAll('.btn-delete-passkey').forEach(btn => {
+              btn.addEventListener('click', () => {
+                window.deletePasskey(btn.getAttribute('data-passkey-id'));
+              });
+            });
           } else {
             container.innerHTML = `<div class="text-center py-6 text-gray-400 text-xs">${i18n.no_passkeys || '暂未添加通行密钥'}</div>`;
           }

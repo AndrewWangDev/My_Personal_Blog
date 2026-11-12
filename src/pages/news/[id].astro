@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import CommentSection from '../../components/CommentSection.astro';
 import { env } from "cloudflare:workers";
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../utils/markdown';
 import { getLangFromRequest } from '../../utils/lang';
 import { ui, defaultLang } from '../../i18n/ui';
 
@@ -19,7 +19,7 @@ try {
   if (db && id) {
     newsItem = await db.prepare('SELECT * FROM news WHERE id = ?').bind(id).first();
     if (newsItem && newsItem.content) {
-      htmlContent = await marked.parse(newsItem.content);
+      htmlContent = await renderSafeMarkdown(newsItem.content);
     }
   }
 } catch (e) {
@@ -70,7 +70,7 @@ const timeStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
         </div>
 
         <div class="flex justify-end mb-8 border-b border-gray-100 dark:border-slate-800 pb-4">
-          <button aria-label={t['complaint.btn']} onclick={`window.openComplaintModal('news', '${id}')`} class="flex items-center space-x-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm font-medium" title={t['complaint.btn']}>
+          <button type="button" aria-label={t['complaint.btn']} data-complaint-type="news" data-complaint-id={id} class="flex items-center space-x-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm font-medium" title={t['complaint.btn']}>
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             <span class="text-sm font-medium">{t['complaint.btn']}</span>
           </button>

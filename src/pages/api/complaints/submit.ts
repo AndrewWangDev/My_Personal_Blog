@@ -9,14 +9,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const data = await request.formData();
-    const targetType = data.get('target_type') as string;
-    const targetId = data.get('target_id') as string;
-    const reason = data.get('reason') as string;
-    const details = data.get('details') as string;
+    const targetType = String(data.get('target_type') || '').trim();
+    const targetId = String(data.get('target_id') || '').trim();
+    const reason = String(data.get('reason') || '').trim();
+    const details = String(data.get('details') || '').trim();
     const turnstileResponse = data.get('cf-turnstile-response') as string;
+
+    const ALLOWED_TARGET_TYPES = new Set(['blog', 'news', 'resource']);
+    const ALLOWED_REASONS = new Set(['r1', 'r2', 'r3', 'r4', 'r5']);
 
     if (!targetType || !targetId || !reason || !details) {
       return new Response(JSON.stringify({ error: "请填写完整投诉信息" }), { status: 400 });
+    }
+    if (!ALLOWED_TARGET_TYPES.has(targetType)) {
+      return new Response(JSON.stringify({ error: "无效的投诉目标类型" }), { status: 400 });
+    }
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(targetId)) {
+      return new Response(JSON.stringify({ error: "无效的投诉目标 ID" }), { status: 400 });
+    }
+    if (!ALLOWED_REASONS.has(reason)) {
+      return new Response(JSON.stringify({ error: "无效的投诉原因" }), { status: 400 });
+    }
+    if (details.length > 2000) {
+      return new Response(JSON.stringify({ error: "投诉详情不能超过 2000 个字符" }), { status: 400 });
     }
 
     if (!turnstileResponse) {

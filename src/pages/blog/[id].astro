@@ -4,7 +4,7 @@ import CommentSection from '../../components/CommentSection.astro';
 import { env } from "cloudflare:workers";
 import { getLangFromRequest } from '../../utils/lang';
 import { ui, defaultLang } from '../../i18n/ui';
-import { marked } from 'marked';
+import { renderSafeMarkdown } from '../../utils/markdown';
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/404');
@@ -21,7 +21,7 @@ try {
 
 if (!post) return Astro.redirect('/404');
 
-const htmlContent = post?.content ? await marked.parse(post.content) : '';
+const htmlContent = post?.content ? await renderSafeMarkdown(post.content) : '';
 
 const lang = getLangFromRequest(Astro);
 const t = ui[lang as keyof typeof ui] || ui[defaultLang];
@@ -47,7 +47,7 @@ const isLoggedIn = Astro.cookies.has('user_session');
 				<button id="bookmark-btn" aria-label={t['blog.bookmark']} class="flex items-center space-x-1.5 text-gray-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg shadow-sm" data-post-id={id} title={t['blog.bookmark']}>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
 				</button>
-				<button aria-label={t['complaint.btn']} onclick={`window.openComplaintModal('blog', '${id}')`} class="flex items-center space-x-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg shadow-sm font-medium" title={t['complaint.btn']}>
+				<button type="button" aria-label={t['complaint.btn']} data-complaint-type="blog" data-complaint-id={id} class="flex items-center space-x-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg shadow-sm font-medium" title={t['complaint.btn']}>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
 				</button>
 			</div>

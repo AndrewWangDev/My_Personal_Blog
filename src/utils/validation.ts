@@ -9,10 +9,45 @@ export const ALLOWED_EMAIL_DOMAINS = [
   'proton.me'
 ];
 
+export function normalizeEmail(email: unknown): string {
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+}
+
+export function isValidEmailFormat(email: string): boolean {
+  if (!email || email.length < 3 || email.length > 254) return false;
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (!local || local.length > 64 || !domain || domain.length > 253) return false;
+  // Disallow whitespace, quotes, angle brackets, and control chars in local part
+  if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local)) return false;
+  if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain)) return false;
+  return true;
+}
+
 export function isAllowedEmailDomain(email: string): boolean {
-  if (!email || !email.includes('@')) return false;
-  const domain = email.split('@')[1]?.toLowerCase().trim();
+  const normalized = normalizeEmail(email);
+  if (!isValidEmailFormat(normalized)) return false;
+  const domain = normalized.split('@')[1];
   return ALLOWED_EMAIL_DOMAINS.includes(domain);
+}
+
+export function isSafeUrl(url: unknown): string {
+  if (typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return trimmed;
+    }
+  } catch {
+    return '';
+  }
+  return '';
 }
 
 export function escapeHtml(str: any): string {

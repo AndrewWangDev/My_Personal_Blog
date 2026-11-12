@@ -102,6 +102,16 @@ const reasons = [
   document.getElementById('closeComplaintBtn')?.addEventListener('click', closeModal);
   document.getElementById('cancelComplaintBtn')?.addEventListener('click', closeModal);
 
+  document.addEventListener('click', (e) => {
+    const trigger = e.target?.closest?.('[data-complaint-type][data-complaint-id]');
+    if (trigger && window.openComplaintModal) {
+      window.openComplaintModal(
+        trigger.getAttribute('data-complaint-type'),
+        trigger.getAttribute('data-complaint-id')
+      );
+    }
+  });
+
   document.getElementById('complaintForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('submitComplaintBtn');
@@ -125,9 +135,7 @@ const reasons = [
 
       if (res.ok) {
         alertBox.className = 'text-sm p-3 rounded-md mb-4 border bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400';
-        // Need to pass translation from Astro to JS, we'll use a hack or just hardcode for simplicity if we can't easily.
-        // Let's use the UI translated string if possible. We can inject it.
-        alertBox.innerHTML = window.__complaint_success || 'Submitted successfully.';
+        alertBox.textContent = window.__complaint_success || 'Submitted successfully.';
         alertBox.classList.remove('hidden');
         setTimeout(() => {
           closeModal();
@@ -135,9 +143,9 @@ const reasons = [
       } else {
         alertBox.className = 'text-sm p-3 rounded-md mb-4 border bg-red-50 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400';
         if (data.error === 'limit_exceeded') {
-          alertBox.innerHTML = window.__complaint_limit || 'Limit exceeded.';
+          alertBox.textContent = window.__complaint_limit || 'Limit exceeded.';
         } else {
-          alertBox.innerHTML = data.error || 'Submission failed.';
+          alertBox.textContent = data.error || 'Submission failed.';
         }
         alertBox.classList.remove('hidden');
         btn.disabled = false;

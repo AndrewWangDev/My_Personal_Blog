@@ -404,11 +404,14 @@ const adminI18n = JSON.stringify(Object.fromEntries(Object.entries(t).filter(([k
               max_user_complaints_daily: i18n['admin.setting_user_complaints_daily'],
               max_total_complaints_daily: i18n['admin.setting_total_complaints_daily']
             };
+            const settingLabel = escapeHtml(labels[item.key] || item.key);
+            const settingKey = escapeHtml(item.key);
+            const settingValue = escapeHtml(item.value);
             html += `<tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-              <td class="px-6 py-4 font-bold text-black dark:text-white text-sm">${labels[item.key] || item.key}</td>
-              <td class="px-6 py-4 text-gray-600 dark:text-slate-300 font-mono text-sm">${item.value}</td>
+              <td class="px-6 py-4 font-bold text-black dark:text-white text-sm">${settingLabel}</td>
+              <td class="px-6 py-4 text-gray-600 dark:text-slate-300 font-mono text-sm">${settingValue}</td>
               <td class="px-6 py-4 text-right text-sm font-medium whitespace-nowrap">
-                <button class="btn-edit-setting text-blue-600 hover:text-blue-900" data-key="${item.key}" data-value="${item.value}" data-label="${labels[item.key] || item.key}">${i18n['admin.btn_modify']}</button>
+                <button class="btn-edit-setting text-blue-600 hover:text-blue-900" data-key="${settingKey}" data-value="${settingValue}" data-label="${settingLabel}">${i18n['admin.btn_modify']}</button>
               </td></tr>`;
           } else if (currentTab === 'complaints') {
             const reasonMap = {
@@ -418,16 +421,19 @@ const adminI18n = JSON.stringify(Object.fromEntries(Object.entries(t).filter(([k
               r4: 'Community Abuse, Fraud & Spam',
               r5: i18n['admin.complaint_other']
             };
-            const mappedReason = reasonMap[item.reason] || item.reason;
-            const timeStr = new Date(item.created_at).toLocaleDateString('zh-CN');
+            const mappedReason = escapeHtml(reasonMap[item.reason] || item.reason);
+            const timeStr = escapeHtml(new Date(item.created_at).toLocaleDateString('zh-CN'));
             const statusBadge = item.status === 'resolved' ? `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">${i18n['admin.status_resolved']}</span>` : `<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">${i18n['admin.form_status_pending']}</span>`;
             const userDeletedBadge = item.is_deleted ? `<span class="text-xs text-red-500 font-bold ml-2">${i18n['admin.user_withdrawn']}</span>` : '';
             const details = escapeHtml((item.details || '').substring(0, 50)) + '...';
+            const safeId = escapeHtml(item.id);
+            const safeTargetType = escapeHtml(item.target_type);
+            const safeTargetId = escapeHtml(item.target_id);
             html += `<tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
               <td class="px-6 py-4">
                 <div class="font-bold text-black dark:text-white text-sm mb-1">${mappedReason}${userDeletedBadge}</div>
                 <div class="text-xs text-gray-500 dark:text-slate-400 truncate max-w-[200px]">${details}</div>
-                <div class="text-[10px] text-blue-500 mt-1">${item.target_type} #${item.target_id}</div>
+                <div class="text-[10px] text-blue-500 mt-1">${safeTargetType} #${safeTargetId}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-black dark:text-white">${escapeHtml(item.username) || i18n['admin.unknown_user']}</div>
@@ -438,8 +444,8 @@ const adminI18n = JSON.stringify(Object.fromEntries(Object.entries(t).filter(([k
                 <div class="text-[10px] text-gray-400 mt-1">${timeStr}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button class="btn-edit text-blue-600 hover:text-blue-900 mr-3" data-id="${item.id}">${i18n['admin.btn_process']}</button>
-                <button class="btn-delete text-red-500 hover:text-red-700" data-id="${item.id}">${i18n['admin.btn_delete']}</button>
+                <button class="btn-edit text-blue-600 hover:text-blue-900 mr-3" data-id="${safeId}">${i18n['admin.btn_process']}</button>
+                <button class="btn-delete text-red-500 hover:text-red-700" data-id="${safeId}">${i18n['admin.btn_delete']}</button>
               </td></tr>`;
           } else {
             const timeStr = new Date(item.created_at).toLocaleDateString('zh-CN');
