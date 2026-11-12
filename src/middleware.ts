@@ -120,16 +120,35 @@ function rateLimitJsonResponse(): Response {
   });
 }
 
+function getFallbackClientKey(request: Request): string {
+  const fp = `${request.headers.get('user-agent') || ''}|${request.headers.get('accept-language') || ''}`;
+  let hash = 2166136261;
+  for (let i = 0; i < fp.length; i++) {
+    hash ^= fp.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `fallback-${(hash >>> 0).toString(16)}`;
+}
+
 export const onRequest = defineMiddleware(async (context, rawNext) => {
+  const url = new URL(context.request.url);
+  const pathname = url.pathname;
+
   const next = async () => {
     const res = await rawNext();
     res.headers.set('X-Content-Type-Options', 'nosniff');
     res.headers.set('X-Frame-Options', 'SAMEORIGIN');
     res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (url.protocol === 'https:') {
+      res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    }
+    res.headers.set(
+      'Content-Security-Policy-Report-Only',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com; frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+    );
     return res;
   };
-  const url = new URL(context.request.url);
-  const pathname = url.pathname;
 
   // ===== Language Preference Detection =====
   if (!context.cookies.has('lang')) {
@@ -145,7 +164,7 @@ export const onRequest = defineMiddleware(async (context, rawNext) => {
         if (l.startsWith('de')) { preferredLang = 'de'; break; }
       }
     }
-    context.cookies.set('lang', preferredLang, { path: '/', maxAge: 31536000 });
+    context.cookies.set('lang', preferredLang, { path: '/', maxAge: 31536000, sameSite: 'lax' });
   }
 
   // Skip rate limiting for static assets entirely
@@ -157,7 +176,7 @@ export const onRequest = defineMiddleware(async (context, rawNext) => {
 
   const ip = context.request.headers.get('cf-connecting-ip') ||
              context.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-             'unknown';
+             getFallbackClientKey(context.request);
   const isApiRoute = pathname.startsWith('/api/');
   const isAdminRoute = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
   const sessionId = context.cookies.get('user_session')?.value;

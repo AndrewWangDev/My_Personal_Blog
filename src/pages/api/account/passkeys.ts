@@ -59,6 +59,6 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
 
   } catch (err: any) {
     console.error("Delete passkey error:", err);
-    return new Response(JSON.stringify({ error: err.message || "删除通行密钥失败" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "删除通行密钥失败，请稍后重试" }), { status: 500 });
   }
 };

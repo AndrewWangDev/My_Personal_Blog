@@ -9,21 +9,22 @@ export const GET: APIRoute = async ({ url }) => {
 
   try {
     const db = env.DB;
-    const term = `%${q}%`;
+    const escapedQuery = q.trim().replace(/[\\%_]/g, '\\$&');
+    const term = `%${escapedQuery}%`;
 
     // 1. Search Blog Posts
     const blogPromise = db.prepare(
-      "SELECT id, title as name, summary, 'blog' as type FROM blog_posts WHERE title LIKE ? OR summary LIKE ? OR content LIKE ? LIMIT 5"
+      "SELECT id, title as name, summary, 'blog' as type FROM blog_posts WHERE title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' LIMIT 5"
     ).bind(term, term, term).all();
 
     // 2. Search Resources
     const resourcePromise = db.prepare(
-      "SELECT id, name, summary, 'resource' as type FROM resources WHERE name LIKE ? OR summary LIKE ? OR details LIKE ? LIMIT 5"
+      "SELECT id, name, summary, 'resource' as type FROM resources WHERE name LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR details LIKE ? ESCAPE '\\' LIMIT 5"
     ).bind(term, term, term).all();
 
     // 3. Search News
     const newsPromise = db.prepare(
-      "SELECT id, title as name, SUBSTR(REPLACE(REPLACE(REPLACE(content, '#', ''), '*', ''), '_', ''), 1, 80) || '...' as summary, 'news' as type FROM news WHERE title LIKE ? OR content LIKE ? LIMIT 5"
+      "SELECT id, title as name, SUBSTR(REPLACE(REPLACE(REPLACE(content, '#', ''), '*', ''), '_', ''), 1, 80) || '...' as summary, 'news' as type FROM news WHERE title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' LIMIT 5"
     ).bind(term, term).all();
 
     const [blogs, resources, news] = await Promise.all([blogPromise, resourcePromise, newsPromise]);

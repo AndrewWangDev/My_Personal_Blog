@@ -36,20 +36,32 @@ export const GET: APIRoute = async () => {
       items = items.slice(0, 20);
     }
 
+    const escapeCdata = (val: unknown) =>
+      String(val ?? '').replace(/\]\]>/g, ']]]]><![CDATA[>');
+    const escapeXml = (val: unknown) =>
+      String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const safeBaseUrl = escapeXml(baseUrl);
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Andrew Wang Dev</title>
-    <link>${baseUrl}</link>
+    <link>${safeBaseUrl}</link>
     <description>Software Engineer focused on Edge Computing &amp; Distributed AI. Currently working on Cloud-Native Architecture and Edge AI &amp; LLM. Open for internships.</description>
-    <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="${safeBaseUrl}/rss.xml" rel="self" type="application/rss+xml" />
     ${items.map(item => `
     <item>
-      <title><![CDATA[${item.title}]]></title>
-      <link>${item.link}</link>
-      <guid isPermaLink="false">${item.guid}</guid>
-      <description><![CDATA[${item.description}]]></description>
-      <pubDate>${item.pubDate}</pubDate>
+      <title><![CDATA[${escapeCdata(item.title)}]]></title>
+      <link>${escapeXml(item.link)}</link>
+      <guid isPermaLink="false">${escapeXml(item.guid)}</guid>
+      <description><![CDATA[${escapeCdata(item.description)}]]></description>
+      <pubDate>${escapeXml(item.pubDate)}</pubDate>
     </item>`).join('')}
   </channel>
 </rss>`;

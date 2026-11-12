@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
 import { timingSafeEqualStr } from "../../../utils/password";
+import { isSafeUrl } from "../../../utils/validation";
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -30,8 +31,30 @@ export const POST: APIRoute = async ({ request }) => {
     const data = await request.json();
     const { title, author, thumbnail_url, cover_url, content } = data;
 
-    if (!title || !content) {
+    if (!title || typeof title !== 'string' || !content || typeof content !== 'string' || !title.trim() || !content.trim()) {
       return new Response(JSON.stringify({ error: "Missing required fields: title and content are mandatory" }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const trimmedTitle = title.trim();
+    const trimmedContent = content.trim();
+    if (trimmedTitle.length > 200 || trimmedContent.length > 100000) {
+      return new Response(JSON.stringify({ error: "Payload field length exceeds allowed limits" }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (thumbnail_url && !isSafeUrl(thumbnail_url)) {
+      return new Response(JSON.stringify({ error: "Invalid thumbnail_url scheme" }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (cover_url && !isSafeUrl(cover_url)) {
+      return new Response(JSON.stringify({ error: "Invalid cover_url scheme" }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -46,7 +69,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // 3. Check for existing news to ensure idempotency
-    const existing = await db.prepare('SELECT id FROM news WHERE title = ? LIMIT 1').bind(title.trim()).first();
+    const existing = await db.prepare('SELECT id FROM news WHERE title = ? LIMIT 1').bind(trimmedTitle).first();
     if (existing) {
       return new Response(JSON.stringify({ 
         success: true, 
@@ -60,19 +83,19 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // 4. Insert news into D1
-    const finalAuthor = author || 'Andrew Wang Dev';
-    const finalThumbnail = thumbnail_url || null;
-    const finalCover = cover_url || finalThumbnail;
+    const finalAuthor = typeof author === 'string' && author.trim() ? author.trim().substring(0, 100) : 'Andrew Wang Dev';
+    const finalThumbnail = thumbnail_url ? String(thumbnail_url).trim() : null;
+    const finalCover = cover_url ? String(cover_url).trim() : finalThumbnail;
 
     const result = await db.prepare(`
       INSERT INTO news (title, author, thumbnail_url, cover_url, content)
       VALUES (?, ?, ?, ?, ?)
     `).bind(
-      title.trim(),
+      trimmedTitle,
       finalAuthor,
       finalThumbnail,
       finalCover,
-      content.trim()
+      trimmedContent
     ).run();
 
     if (result.success) {
@@ -92,7 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
   } catch (error: any) {
     console.error("Error in internal news ingestion API:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), { 
+    return new Response(JSON.stringify({ error: "Internal server error" }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

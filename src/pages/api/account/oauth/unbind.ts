@@ -45,6 +45,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   } catch (error: any) {
     console.error("OAuth unbind error:", error);
-    return new Response(JSON.stringify({ error: error.message || "解绑失败" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "解绑失败，请稍后重试" }), { status: 500 });
   }
 };

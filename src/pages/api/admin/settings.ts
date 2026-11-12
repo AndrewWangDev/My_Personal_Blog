@@ -41,7 +41,7 @@ export const GET: APIRoute = async (context) => {
 
   } catch (error: any) {
     console.error("Admin Settings GET Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "获取系统设置失败" }), { status: 500 });
   }
 };
 
@@ -73,6 +73,6 @@ export const POST: APIRoute = async (context) => {
     return new Response(JSON.stringify({ success: true, message: '设置已保存' }));
   } catch (error: any) {
     console.error("Admin Settings POST Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "保存系统设置失败" }), { status: 500 });
   }
 };

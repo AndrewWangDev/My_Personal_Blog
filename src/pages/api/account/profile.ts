@@ -11,15 +11,20 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     const { age, bio } = data;
 
     // 基础验证
-    const ageNum = parseInt(age, 10);
-    if (age && (isNaN(ageNum) || ageNum < 0 || ageNum > 150)) {
-      return new Response(JSON.stringify({ error: '年龄不合法' }), { status: 400 });
+    const ageStr = age !== undefined && age !== null ? String(age).trim() : '';
+    let validAge: string | null = null;
+    if (ageStr !== '') {
+      if (!/^\d{1,3}$/.test(ageStr)) {
+        return new Response(JSON.stringify({ error: '年龄不合法' }), { status: 400 });
+      }
+      const ageNum = Number(ageStr);
+      if (!Number.isInteger(ageNum) || ageNum < 0 || ageNum > 150) {
+        return new Response(JSON.stringify({ error: '年龄不合法' }), { status: 400 });
+      }
+      validAge = String(ageNum);
     }
 
-
-
-    // 防注入处理
-    const safeBio = bio ? String(bio).replace(/</g, "&lt;").replace(/>/g, "&gt;").substring(0, 500) : '';
+    const safeBio = typeof bio === 'string' ? bio.trim().substring(0, 500) : '';
 
     const db = env.DB;
     if (!db) {
@@ -27,7 +32,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     }
 
     await db.prepare('UPDATE users SET age = ?, bio = ? WHERE id = ?')
-      .bind(age ? String(ageNum) : null, safeBio, locals.user.id)
+      .bind(validAge, safeBio, locals.user.id)
       .run();
 
     return new Response(JSON.stringify({ success: true, message: '个人信息已更新' }), { status: 200 });

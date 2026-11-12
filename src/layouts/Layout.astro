@@ -634,7 +634,7 @@ const isNoindexPage = noindexPaths.some(p => Astro.url.pathname.startsWith(p));
       document.querySelectorAll('.lang-opt').forEach(btn => {
         btn.addEventListener('click', () => {
           const l = btn.getAttribute('data-lang');
-          document.cookie = `lang=${l}; path=/; max-age=31536000`;
+          document.cookie = `lang=${l}; path=/; max-age=31536000; SameSite=Lax`;
           location.reload();
         });
       });
