@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
-import { generateRandomChallenge } from '../../../../utils/webauthn';
+import { generateRandomChallenge, storeWebAuthnChallenge } from '../../../../utils/webauthn';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -9,21 +9,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const challenge = generateRandomChallenge(32);
     const authSessionId = crypto.randomUUID();
 
-    // Store challenge in KV for 5 minutes
+    // Store challenge in KV or D1 for 5 minutes
     const sessionKv = (env as any).SESSION;
-    if (sessionKv) {
-      await sessionKv.put(`passkey_auth_${authSessionId}`, challenge, { expirationTtl: 300 });
-    }
+    const db = (env as any).DB;
+    await storeWebAuthnChallenge(sessionKv, db, `passkey_auth_${authSessionId}`, challenge, 300);
 
     cookies.set('passkey_auth_session', authSessionId, {
-      path: '/',
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 300
-    });
-
-    cookies.set('passkey_auth_ch', challenge, {
       path: '/',
       httpOnly: true,
       secure: true,

@@ -1,6 +1,13 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
-import { parseClientDataJSON, verifySignature, parseAuthenticatorData } from '../../../../utils/webauthn';
+import {
+  parseClientDataJSON,
+  verifySignature,
+  parseAuthenticatorData,
+  verifyRpIdHash,
+  consumeWebAuthnChallenge
+} from '../../../../utils/webauthn';
+import { timingSafeEqualStr } from '../../../../utils/password';
 import { createSignedSession, getSessionSecret } from '../../../../utils/session';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
@@ -18,28 +25,23 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       return new Response(JSON.stringify({ error: "数据库不可用" }), { status: 500 });
     }
 
-    // 1. Verify challenge from KV or Cookie
+    // 1. Verify challenge strictly from server-side KV or D1
     const authSessionId = cookies.get('passkey_auth_session')?.value;
-    const cookieChallenge = cookies.get('passkey_auth_ch')?.value;
-    let expectedChallenge = '';
-    if (authSessionId && sessionKv) {
-      expectedChallenge = await sessionKv.get(`passkey_auth_${authSessionId}`) || '';
-      await sessionKv.delete(`passkey_auth_${authSessionId}`);
-    }
-    if (!expectedChallenge && cookieChallenge) {
-      expectedChallenge = cookieChallenge;
-    }
-    // Delete challenges to prevent replay
     cookies.delete('passkey_auth_session', { path: '/' });
     cookies.delete('passkey_auth_ch', { path: '/' });
 
+    if (!authSessionId) {
+      return new Response(JSON.stringify({ error: "挑战码已失效，请重新登录" }), { status: 400 });
+    }
+
+    const expectedChallenge = await consumeWebAuthnChallenge(sessionKv, db, `passkey_auth_${authSessionId}`);
     if (!expectedChallenge) {
       return new Response(JSON.stringify({ error: "挑战码已失效，请重新登录" }), { status: 400 });
     }
 
     const clientData = parseClientDataJSON(response.clientDataJSON);
 
-    if (clientData.challenge !== expectedChallenge) {
+    if (!timingSafeEqualStr(clientData.challenge || '', expectedChallenge)) {
       return new Response(JSON.stringify({ error: "挑战码失效或不匹配，请重新登录" }), { status: 400 });
     }
 
@@ -74,8 +76,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       return new Response(JSON.stringify({ error: "通行密钥生物/PIN 签名校验失败" }), { status: 401 });
     }
 
-    // 4. Counter and flags verification (anti-replay)
+    // 4. Counter, rpIdHash and flags verification (anti-replay & origin binding)
     const authData = parseAuthenticatorData(response.authenticatorData);
+    if (!(await verifyRpIdHash(authData.rpIdHash, url.hostname))) {
+      return new Response(JSON.stringify({ error: "通行密钥域名哈希校验失败" }), { status: 403 });
+    }
     if (!(authData.flags & 0x01)) {
       return new Response(JSON.stringify({ error: "未通过用户存在性校验 (User Presence)" }), { status: 401 });
     }
@@ -93,7 +98,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // 5. Query user profile and issue session cookie
     const user = await db.prepare(`
       SELECT u.id, u.username, u.role, u.token_version,
-             (SELECT 1 FROM deleted_users d WHERE d.email = u.email AND d.expires_at > datetime('now')) as is_restricted
+             (SELECT 1 FROM deleted_users d WHERE LOWER(d.email) = LOWER(u.email) AND d.expires_at > datetime('now')) as is_restricted
       FROM users u WHERE u.id = ?
     `).bind(passkey.user_id).first();
 
@@ -123,6 +128,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   } catch (err: any) {
     console.error("Passkey auth verification error:", err);
-    return new Response(JSON.stringify({ error: err.message || "通行密钥验证失败" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "通行密钥验证失败" }), { status: 500 });
   }
 };

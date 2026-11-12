@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
-import { generateRandomChallenge, base64UrlEncode } from '../../../../utils/webauthn';
+import { generateRandomChallenge, base64UrlEncode, storeWebAuthnChallenge } from '../../../../utils/webauthn';
 
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const db = (env as any).DB;
   const user = locals.user;
   if (!user) {
@@ -14,19 +14,9 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
     const rpId = url.hostname;
     const challenge = generateRandomChallenge(32);
 
-    // Save challenge in KV with 5-minute TTL
+    // Save challenge in KV (or D1 fallback) with 5-minute TTL
     const sessionKv = (env as any).SESSION;
-    if (sessionKv) {
-      await sessionKv.put(`passkey_reg_${user.id}`, challenge, { expirationTtl: 300 });
-    }
-
-    cookies.set('passkey_reg_ch', challenge, {
-      path: '/',
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 300
-    });
+    await storeWebAuthnChallenge(sessionKv, db, `passkey_reg_${user.id}`, challenge, 300);
 
     const userIdBytes = new TextEncoder().encode(user.id);
     const userHandle = base64UrlEncode(userIdBytes);
@@ -62,6 +52,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
   } catch (err: any) {
     console.error("Passkey register options error:", err);
-    return new Response(JSON.stringify({ error: err.message || "初始化通行密钥注册失败" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "初始化通行密钥注册失败" }), { status: 500 });
   }
 };

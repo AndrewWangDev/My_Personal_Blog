@@ -22,12 +22,12 @@ CREATE TABLE IF NOT EXISTS deleted_users (
 CREATE TABLE IF NOT EXISTS comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id TEXT NOT NULL, -- 对应 Astro 的文章 id
-    user_id TEXT NOT NULL,
+    user_id TEXT, -- 允许为空，用户注销后设为 NULL 以保留占位与后续回复
     parent_id INTEGER, -- 用于子评论，若为空则是顶级评论
     content TEXT NOT NULL,
     is_deleted INTEGER DEFAULT 0, -- 软删除标记: 0 正常, 1 已删除
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
 
@@ -181,3 +181,10 @@ CREATE TABLE IF NOT EXISTS email_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON email_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_email_logs_email ON email_logs(email);
+
+-- 15. WebAuthn/Passkey 一次性挑战表（当未绑定 KV SESSION 时作为服务端强校验兜底）
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+    id TEXT PRIMARY KEY,
+    challenge TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+);
