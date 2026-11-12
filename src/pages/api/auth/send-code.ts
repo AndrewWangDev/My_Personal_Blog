@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env as cfEnv } from "cloudflare:workers";
-import { isAllowedEmailDomain } from "../../../utils/validation";
+import { escapeHtml, isAllowedEmailDomain, normalizeEmail } from "../../../utils/validation";
 
 const templates: Record<string, any> = {
   zh: {
@@ -51,10 +51,11 @@ const templates: Record<string, any> = {
 };
 
 export const POST: APIRoute = async (context) => {
-  const { request, cookies, locals } = context;
+  const { request, cookies } = context;
   try {
     const body = await request.json();
-    const { email, turnstileResponse } = body;
+    const email = normalizeEmail(body?.email);
+    const { turnstileResponse } = body;
     if (!email) return new Response(JSON.stringify({ error: "邮箱不能为空" }), { status: 400 });
     if (!isAllowedEmailDomain(email)) return new Response(JSON.stringify({ error: "仅支持 Gmail, Outlook, Yahoo, Hotmail, iCloud, Proton 邮箱，请更换重试" }), { status: 400 });
     if (!turnstileResponse) return new Response(JSON.stringify({ error: "请先完成人机验证" }), { status: 400 });
@@ -62,18 +63,21 @@ export const POST: APIRoute = async (context) => {
     const db = (cfEnv as any).DB;
     if (!db) return new Response(JSON.stringify({ error: "数据库连接失败" }), { status: 500 });
     
-    const domain = email.split('@')[1]?.toLowerCase();
+    const domain = email.split('@')[1];
     const lang = cookies.get('lang')?.value || 'zh';
     const t = templates[lang] || templates.zh;
 
     // 0. 检查是否在限制封禁名单中
-    const restricted = await db.prepare("SELECT email FROM deleted_users WHERE email = ? AND expires_at > datetime('now')").bind(email).first();
+    const restricted = await db.prepare("SELECT email FROM deleted_users WHERE LOWER(email) = ? AND expires_at > datetime('now')").bind(email).first();
     if (restricted) {
       return new Response(JSON.stringify({ error: "该邮箱处于系统限制封禁期内，无法发送验证码" }), { status: 403 });
     }
 
     // 1. Verify Turnstile (使用官方推荐的 URLSearchParams 格式与客户端 IP)
     const turnstileSecret = (import.meta.env as any).TURNSTILE_SECRET_KEY || (cfEnv as any).TURNSTILE_SECRET_KEY;
+    if (!turnstileSecret) {
+      return new Response(JSON.stringify({ error: "服务器人机验证配置缺失" }), { status: 500 });
+    }
     const verifyParams = new URLSearchParams();
     verifyParams.append('secret', turnstileSecret);
     verifyParams.append('response', turnstileResponse);
@@ -122,7 +126,7 @@ export const POST: APIRoute = async (context) => {
     const hourlyTotal = hourlyTotalRow?.count || 0;
     if (hourlyTotal >= hourlyLimit) return new Response(JSON.stringify({ error: "系统繁忙，请使用其他注册方式" }), { status: 429 });
 
-    const userDailyRow = await db.prepare("SELECT count(*) as count FROM email_logs WHERE email = ? AND created_at > datetime('now', '-1 day')").bind(email).first() as any;
+    const userDailyRow = await db.prepare("SELECT count(*) as count FROM email_logs WHERE LOWER(email) = ? AND created_at > datetime('now', '-1 day')").bind(email).first() as any;
     const userDaily = userDailyRow?.count || 0;
     if (userDaily >= userDailyLimit) return new Response(JSON.stringify({ error: "该邮箱今日发送次数已达上限" }), { status: 429 });
 
@@ -157,7 +161,7 @@ export const POST: APIRoute = async (context) => {
               <span style="color: #ffffff; font-size: 26px; font-weight: bold; letter-spacing: 0.5px;">Andrew Wang Dev</span>
             </div>
             <div style="padding: 40px 32px; background-color: #ffffff;">
-              <p style="font-size: 16px; color: #374151; margin-bottom: 16px; margin-top: 0;">${t.greeting} <a href="mailto:${email}" style="color: #2563eb; text-decoration: none;">${email}</a>，</p>
+              <p style="font-size: 16px; color: #374151; margin-bottom: 16px; margin-top: 0;">${t.greeting} <a href="mailto:${escapeHtml(email)}" style="color: #2563eb; text-decoration: none;">${escapeHtml(email)}</a>，</p>
               <p style="font-size: 16px; color: #374151; line-height: 1.6; margin-bottom: 32px;">${t.welcome}</p>
               <div style="margin: 32px 0;">
                 <span style="font-size: 42px; font-weight: 700; color: #111827; letter-spacing: 12px;">${otp}</span>
@@ -189,6 +193,6 @@ export const POST: APIRoute = async (context) => {
 
   } catch (error: any) {
     console.error("Send code error:", error);
-    return new Response(JSON.stringify({ error: "系统繁忙，请稍后再试: " + (error.message || "") }), { status: 500 });
+    return new Response(JSON.stringify({ error: "系统繁忙，请稍后再试" }), { status: 500 });
   }
 };

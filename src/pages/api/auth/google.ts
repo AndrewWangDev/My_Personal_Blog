@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
 import { isOAuthBoundToAnotherUser } from '../../../utils/credentials';
 import { createSignedSession, getSessionSecret } from '../../../utils/session';
+import { normalizeEmail } from '../../../utils/validation';
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
   try {
@@ -75,6 +76,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
       }), { status: 403 });
     }
 
+    email = normalizeEmail(email);
+
     const db = (env as any).DB;
     if (!db) {
       return new Response(JSON.stringify({ error: "数据库连接不可用" }), { status: 500 });
@@ -82,8 +85,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
     // 检查账号封禁限制
     const restricted = await db.prepare(
-      "SELECT email FROM deleted_users WHERE email = ? AND expires_at > datetime('now')"
-    ).bind(email.toLowerCase()).first();
+      "SELECT email FROM deleted_users WHERE LOWER(email) = ? AND expires_at > datetime('now')"
+    ).bind(email).first();
 
     if (restricted) {
       return new Response(JSON.stringify({ 
@@ -138,9 +141,9 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
     if (linkedAccount) {
       const user = await db.prepare(`
         SELECT u.id, u.username, u.role, u.token_version,
-               (SELECT 1 FROM deleted_users d WHERE (d.email = u.email OR d.email = ?) AND d.expires_at > datetime('now')) as is_restricted
+               (SELECT 1 FROM deleted_users d WHERE (LOWER(d.email) = LOWER(u.email) OR LOWER(d.email) = ?) AND d.expires_at > datetime('now')) as is_restricted
         FROM users u WHERE u.id = ?
-      `).bind(email.toLowerCase(), linkedAccount.user_id).first();
+      `).bind(email, linkedAccount.user_id).first();
 
       if (user) {
         if (user.is_restricted) {
@@ -167,8 +170,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
     // 规则 (3): 如果没有关联，检查用户邮箱是否为某一个账号的邮箱？若是，使用此账号登录；并将第三方账号ID绑定到此账号
     const userByEmail = await db.prepare(`
       SELECT u.id, u.username, u.role, u.token_version,
-             (SELECT 1 FROM deleted_users d WHERE d.email = u.email AND d.expires_at > datetime('now')) as is_restricted
-      FROM users u WHERE u.email = ?
+             (SELECT 1 FROM deleted_users d WHERE LOWER(d.email) = LOWER(u.email) AND d.expires_at > datetime('now')) as is_restricted
+      FROM users u WHERE LOWER(u.email) = ?
     `).bind(email).first();
 
     if (userByEmail) {
@@ -243,6 +246,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
   } catch (error: any) {
     console.error("Google Auth Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "服务器内部错误" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Google 登录处理失败，请稍后重试" }), { status: 500 });
   }
 };

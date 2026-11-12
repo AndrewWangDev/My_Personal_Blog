@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
+import { normalizeEmail } from '../../../../utils/validation';
 
 // GET: List all restricted emails
 export const GET: APIRoute = async ({ locals }) => {
@@ -28,7 +29,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const data = await request.json();
     const { email, expires_at } = data;
 
-    if (!email || !expires_at) {
+    const normalizedEmail = typeof email === 'string' ? normalizeEmail(email) : '';
+    if (!normalizedEmail || !expires_at) {
       return new Response(JSON.stringify({ error: '请提供邮箱和限制截止时间' }), { status: 400 });
     }
 
@@ -36,7 +38,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       INSERT INTO deleted_users (email, expires_at) 
       VALUES (?, ?) 
       ON CONFLICT(email) DO UPDATE SET expires_at = ?
-    `).bind(email, expires_at, expires_at).run();
+    `).bind(normalizedEmail, expires_at, expires_at).run();
 
     return new Response(JSON.stringify({ success: true, message: '限制已添加' }), { status: 200 });
   } catch (err: any) {

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
 import { verifyPassword } from '../../../utils/password';
+import { normalizeEmail } from '../../../utils/validation';
 
 export const DELETE: APIRoute = async ({ request, cookies, locals }) => {
   if (!locals.user) {
@@ -39,26 +40,22 @@ export const DELETE: APIRoute = async ({ request, cookies, locals }) => {
       }
     }
 
-    // 3. 将评论软删除（占位）
-    await db.prepare('UPDATE comments SET is_deleted = 1 WHERE user_id = ?').bind(userId).run();
+    const normalizedEmail = normalizeEmail(user.email);
 
-    // 4. 硬删除关联的第三方绑定、通行密钥与点赞收藏互动记录
+    // 3-6. 原子软删除评论并解除外键引用，硬删除关联记录，写入封禁名单并删除用户
     await db.batch([
+      db.prepare('UPDATE comments SET is_deleted = 1, user_id = NULL WHERE user_id = ?').bind(userId),
       db.prepare('DELETE FROM interactions WHERE user_id = ?').bind(userId),
       db.prepare('DELETE FROM user_oauth_accounts WHERE user_id = ?').bind(userId),
       db.prepare('DELETE FROM user_passkeys WHERE user_id = ?').bind(userId),
-      db.prepare('UPDATE complaints SET user_id = NULL WHERE user_id = ?').bind(userId)
+      db.prepare('UPDATE complaints SET user_id = NULL WHERE user_id = ?').bind(userId),
+      db.prepare(`
+        INSERT INTO deleted_users (email, expires_at) 
+        VALUES (?, datetime('now', '+30 days')) 
+        ON CONFLICT(email) DO UPDATE SET expires_at = datetime('now', '+30 days')
+      `).bind(normalizedEmail),
+      db.prepare('DELETE FROM users WHERE id = ?').bind(userId)
     ]);
-
-    // 5. 将邮箱写入 deleted_users 防止恶意注册 (upsert 以应对极小概率的多次注销情况)
-    await db.prepare(`
-      INSERT INTO deleted_users (email, expires_at) 
-      VALUES (?, datetime('now', '+30 days')) 
-      ON CONFLICT(email) DO UPDATE SET expires_at = datetime('now', '+30 days')
-    `).bind(user.email).run();
-
-    // 6. 彻底删除用户记录
-    await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
 
     // 7. 清除 Cookie
     cookies.delete('user_session', { path: '/' });

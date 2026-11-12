@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
 
 import { hashPassword } from '../../../../utils/password';
+import { normalizeEmail } from '../../../../utils/validation';
 
 // PUT: Update user details
 export const PUT: APIRoute = async ({ params, request, locals }) => {
@@ -22,7 +23,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     // Update basic info and revoke sessions if email is changed
     if (email && typeof email === 'string' && email.trim().length > 0) {
       await db.prepare('UPDATE users SET email = ?, token_version = token_version + 1 WHERE id = ?')
-        .bind(email.trim(), userId)
+        .bind(normalizeEmail(email), userId)
         .run();
     }
 
@@ -69,9 +70,11 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });
     }
 
+    const normalizedEmail = normalizeEmail(user.email);
+
     // 使用 batch 原子级联清理所有关联表
     await db.batch([
-      db.prepare('UPDATE comments SET is_deleted = 1 WHERE user_id = ?').bind(userId),
+      db.prepare('UPDATE comments SET is_deleted = 1, user_id = NULL WHERE user_id = ?').bind(userId),
       db.prepare('DELETE FROM interactions WHERE user_id = ?').bind(userId),
       db.prepare('DELETE FROM user_oauth_accounts WHERE user_id = ?').bind(userId),
       db.prepare('DELETE FROM user_passkeys WHERE user_id = ?').bind(userId),
@@ -80,7 +83,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
         INSERT INTO deleted_users (email, expires_at) 
         VALUES (?, datetime('now', '+30 days')) 
         ON CONFLICT(email) DO UPDATE SET expires_at = datetime('now', '+30 days')
-      `).bind(user.email),
+      `).bind(normalizedEmail),
       db.prepare('DELETE FROM users WHERE id = ?').bind(userId)
     ]);
 

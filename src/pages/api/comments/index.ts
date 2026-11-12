@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
              (SELECT count(*) FROM interactions WHERE target_type = 'comment_like' AND target_id = c.id) as like_count,
              EXISTS(SELECT 1 FROM interactions WHERE target_type = 'comment_like' AND target_id = c.id AND user_id = ?) as has_liked
       FROM comments c
-      JOIN users u ON c.user_id = u.id
+      LEFT JOIN users u ON c.user_id = u.id
       WHERE c.post_id = ?
       ORDER BY c.created_at ASC
     `).bind(currentUserId, currentUserId, postId).all();
@@ -33,7 +33,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const comment = { 
         id: row.id,
         content: isDeleted ? "This comment has been deleted." : row.content,
-        username: isDeleted ? "System Admin" : row.username,
+        username: isDeleted ? "System Admin" : (row.username || "Former User"),
         created_at: row.created_at,
         parent_id: row.parent_id,
         is_deleted: isDeleted,
@@ -47,6 +47,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
         const parent = map.get(row.parent_id);
         if (parent) {
           parent.replies.push(comment);
+        } else {
+          comments.push(comment);
         }
       } else {
         comments.push(comment);
@@ -69,21 +71,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const { postId, content, parentId } = await request.json();
 
-    if (!postId || !content || typeof content !== 'string' || !content.trim()) {
+    if (typeof postId !== 'string' || !/^(guestbook|(blog|news|res)_[a-zA-Z0-9_-]{1,64})$/.test(postId)) {
+      return new Response(JSON.stringify({ error: "无效的目标帖子 ID" }), { status: 400 });
+    }
+
+    if (!content || typeof content !== 'string' || !content.trim()) {
       return new Response(JSON.stringify({ error: "评论内容不能为空" }), { status: 400 });
     }
 
-    if (content.length > 2000) {
+    const trimmedContent = content.trim();
+    if (trimmedContent.length > 2000) {
       return new Response(JSON.stringify({ error: "评论内容长度不能超过 2000 个字符" }), { status: 400 });
     }
 
-    // TODO: 实现 KV 频率限制 (防刷)
-    
     const db = env.DB;
+
+    let normalizedParentId: number | null = null;
+    if (parentId !== undefined && parentId !== null && parentId !== '') {
+      const parsedParent = Number(parentId);
+      if (!Number.isInteger(parsedParent) || parsedParent <= 0) {
+        return new Response(JSON.stringify({ error: "无效的回复目标" }), { status: 400 });
+      }
+      const parentComment = await db.prepare(
+        'SELECT id FROM comments WHERE id = ? AND post_id = ?'
+      ).bind(parsedParent, postId).first();
+      if (!parentComment) {
+        return new Response(JSON.stringify({ error: "回复的目标评论不存在" }), { status: 400 });
+      }
+      normalizedParentId = parsedParent;
+    }
+
     await db.prepare(`
       INSERT INTO comments (post_id, user_id, parent_id, content) 
       VALUES (?, ?, ?, ?)
-    `).bind(postId, userId, parentId || null, content).run();
+    `).bind(postId, userId, normalizedParentId, trimmedContent).run();
 
     return new Response(JSON.stringify({ success: true, message: "评论成功" }), { status: 200 });
   } catch (error) {

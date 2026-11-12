@@ -4,11 +4,16 @@ import { env } from "cloudflare:workers";
 
 import { verifyPassword, hashPassword } from '../../../utils/password';
 import { createSignedSession, getSessionSecret } from '../../../utils/session';
+import { normalizeEmail } from '../../../utils/validation';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
-    const data = await request.formData();
-    const email = data.get('email') as string;
+    const data = await request.formData().catch(() => null);
+    if (!data) {
+      return new Response(JSON.stringify({ error: "请求格式错误，请填写表单重试" }), { status: 400 });
+    }
+    const rawEmail = data.get('email') as string;
+    const email = normalizeEmail(rawEmail);
     const password = data.get('password') as string;
     const turnstileResponse = data.get('cf-turnstile-response') as string;
 
@@ -39,13 +44,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     const db = env.DB;
     // 1. 检查是否在限制封禁名单中
-    const restricted = await db.prepare("SELECT email FROM deleted_users WHERE email = ? AND expires_at > datetime('now')").bind(email).first();
+    const restricted = await db.prepare("SELECT email FROM deleted_users WHERE LOWER(email) = ? AND expires_at > datetime('now')").bind(email).first();
     if (restricted) {
       return new Response(JSON.stringify({ error: "该账号目前处于封禁限制状态，暂无法登录" }), { status: 403 });
     }
 
     // 2. 查找用户 (包含 token_version 用于会话管理)
-    const user = await db.prepare('SELECT id, password_hash, username, token_version FROM users WHERE email = ?').bind(email).first();
+    const user = await db.prepare('SELECT id, password_hash, username, token_version FROM users WHERE LOWER(email) = ?').bind(email).first();
     
     if (!user) {
       return new Response(JSON.stringify({ error: "该邮箱尚未注册，请先注册" }), { status: 400 });

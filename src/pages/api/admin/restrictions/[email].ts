@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
+import { normalizeEmail } from '../../../../utils/validation';
 
 // PUT: Update restriction expiry date
 export const PUT: APIRoute = async ({ params, request, locals }) => {
@@ -7,7 +8,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
   }
 
-  const email = decodeURIComponent(params.email || '');
+  const email = normalizeEmail(decodeURIComponent(params.email || ''));
   if (!email) {
     return new Response(JSON.stringify({ error: '缺少邮箱' }), { status: 400 });
   }
@@ -21,7 +22,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       return new Response(JSON.stringify({ error: '请提供新的截止时间' }), { status: 400 });
     }
 
-    await db.prepare('UPDATE deleted_users SET expires_at = ? WHERE email = ?')
+    await db.prepare('UPDATE deleted_users SET expires_at = ? WHERE LOWER(email) = ?')
       .bind(expires_at, email)
       .run();
 
@@ -38,14 +39,14 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
   }
 
-  const email = decodeURIComponent(params.email || '');
+  const email = normalizeEmail(decodeURIComponent(params.email || ''));
   if (!email) {
     return new Response(JSON.stringify({ error: '缺少邮箱' }), { status: 400 });
   }
 
   try {
     const db = env.DB;
-    await db.prepare('DELETE FROM deleted_users WHERE email = ?').bind(email).run();
+    await db.prepare('DELETE FROM deleted_users WHERE LOWER(email) = ?').bind(email).run();
     return new Response(JSON.stringify({ success: true, message: '限制已解除' }), { status: 200 });
   } catch (err: any) {
     console.error('Admin delete restriction error:', err);

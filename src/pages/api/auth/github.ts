@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { env } from "cloudflare:workers";
 import { isOAuthBoundToAnotherUser } from '../../../utils/credentials';
 import { createSignedSession, getSessionSecret } from '../../../utils/session';
+import { normalizeEmail } from '../../../utils/validation';
 
 // Helper to process GitHub user profile and execute 4-step state machine
 async function processGitHubAuth(githubToken: string, currentSessionId: string | undefined, action: string | undefined, db: any, cookies: any, sessionSecret: string, verifiedUserId?: string | null) {
@@ -47,11 +48,6 @@ async function processGitHubAuth(githubToken: string, currentSessionId: string |
     }
   }
 
-  // Fallback to user.email if verified
-  if (!primaryVerifiedEmail && githubUser.email) {
-    primaryVerifiedEmail = githubUser.email.trim();
-  }
-
   // 规则 (1): 如果第三方账号邮箱没有被验证/没有邮箱，那么拦截，不允许绑定、也不允许通过它登录/注册
   if (!primaryVerifiedEmail) {
     return {
@@ -60,10 +56,12 @@ async function processGitHubAuth(githubToken: string, currentSessionId: string |
     };
   }
 
+  primaryVerifiedEmail = normalizeEmail(primaryVerifiedEmail);
+
   // 检查账号封禁限制
   const restricted = await db.prepare(
-    "SELECT email FROM deleted_users WHERE email = ? AND expires_at > datetime('now')"
-  ).bind(primaryVerifiedEmail.toLowerCase()).first();
+    "SELECT email FROM deleted_users WHERE LOWER(email) = ? AND expires_at > datetime('now')"
+  ).bind(primaryVerifiedEmail).first();
 
   if (restricted) {
     return {
@@ -115,9 +113,9 @@ async function processGitHubAuth(githubToken: string, currentSessionId: string |
   if (linkedAccount) {
     const user = await db.prepare(`
       SELECT u.id, u.username, u.role, u.token_version,
-             (SELECT 1 FROM deleted_users d WHERE (d.email = u.email OR d.email = ?) AND d.expires_at > datetime('now')) as is_restricted
+             (SELECT 1 FROM deleted_users d WHERE (LOWER(d.email) = LOWER(u.email) OR LOWER(d.email) = ?) AND d.expires_at > datetime('now')) as is_restricted
       FROM users u WHERE u.id = ?
-    `).bind(primaryVerifiedEmail.toLowerCase(), linkedAccount.user_id).first();
+    `).bind(primaryVerifiedEmail, linkedAccount.user_id).first();
 
     if (user) {
       if (user.is_restricted) {
@@ -139,8 +137,8 @@ async function processGitHubAuth(githubToken: string, currentSessionId: string |
   // 规则 (3): 如果没有关联，检查用户邮箱是否为某一个账号的邮箱？若是，使用此账号登录；并将第三方账号ID绑定到此账号
   const userByEmail = await db.prepare(`
     SELECT u.id, u.username, u.role, u.token_version,
-           (SELECT 1 FROM deleted_users d WHERE d.email = u.email AND d.expires_at > datetime('now')) as is_restricted
-    FROM users u WHERE u.email = ?
+           (SELECT 1 FROM deleted_users d WHERE LOWER(d.email) = LOWER(u.email) AND d.expires_at > datetime('now')) as is_restricted
+    FROM users u WHERE LOWER(u.email) = ?
   `).bind(primaryVerifiedEmail).first();
 
   if (userByEmail) {
@@ -223,9 +221,11 @@ export const GET: APIRoute = async ({ request, cookies, redirect, locals }) => {
       return new Response("GitHub Client ID 未配置", { status: 500 });
     }
     const state = crypto.randomUUID();
-    cookies.set('github_oauth_state', state, { path: '/', maxAge: 600, httpOnly: true, secure: true });
+    cookies.set('github_oauth_state', state, { path: '/', maxAge: 600, httpOnly: true, secure: true, sameSite: 'lax' });
     if (action) {
-      cookies.set('github_oauth_action', action, { path: '/', maxAge: 600, httpOnly: true, secure: true });
+      cookies.set('github_oauth_action', action, { path: '/', maxAge: 600, httpOnly: true, secure: true, sameSite: 'lax' });
+    } else {
+      cookies.delete('github_oauth_action', { path: '/' });
     }
 
     const redirectUri = `${url.origin}/api/auth/github`;
@@ -239,6 +239,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect, locals }) => {
   cookies.delete('github_oauth_state', { path: '/' });
 
   const cookieAction = cookies.get('github_oauth_action')?.value || action;
+  cookies.delete('github_oauth_action', { path: '/' });
   if (!state || !savedState || state !== savedState) {
     const errorMsg = 'OAuth 验证状态已失效或存在安全风险，请重新登录';
     const target = cookieAction === 'bind' ? '/account?error=' : '/login?error=';
@@ -272,7 +273,6 @@ export const GET: APIRoute = async ({ request, cookies, redirect, locals }) => {
     const db = (env as any).DB;
     const sessionSecret = getSessionSecret(env);
     const currentSessionId = cookies.get('user_session')?.value;
-    const cookieAction = cookies.get('github_oauth_action')?.value || action;
 
     const result = await processGitHubAuth(tokenData.access_token, currentSessionId, cookieAction, db, cookies, sessionSecret, locals.user?.id);
 
@@ -288,7 +288,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect, locals }) => {
     return redirect('/', 302);
   } catch (err: any) {
     console.error('GitHub OAuth Callback Error:', err);
-    return redirect('/login?error=' + encodeURIComponent(err.message || '内部服务错误'), 302);
+    return redirect('/login?error=' + encodeURIComponent('GitHub 授权处理失败，请稍后重试'), 302);
   }
 };
 
@@ -302,6 +302,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
     // 严格校验 State 防范 CSRF
     const savedState = cookies.get('github_oauth_state')?.value;
     cookies.delete('github_oauth_state', { path: '/' });
+    cookies.delete('github_oauth_action', { path: '/' });
     if (!state || !savedState || state !== savedState) {
       return new Response(JSON.stringify({ error: "OAuth State 状态不匹配或已失效，请重新登录" }), { status: 400 });
     }
@@ -332,6 +333,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
     return new Response(JSON.stringify(result.data), { status: result.status });
   } catch (error: any) {
     console.error("GitHub Auth Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "服务器内部错误" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "GitHub 授权处理失败，请稍后重试" }), { status: 500 });
   }
 };
