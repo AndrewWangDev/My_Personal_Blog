@@ -15,21 +15,19 @@
     "news:fetch": "node scripts/fetch-daily-news.mjs"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^13.5.0",
-    "@astrojs/tailwind": "^6.0.2",
-    "@tailwindcss/typography": "^0.5.19",
-    "astro": "^6.3.1",
+    "@astrojs/cloudflare": "^14.4.7",
+    "@tailwindcss/typography": "^0.5.20",
+    "@tailwindcss/vite": "^4.3.5",
+    "astro": "^7.4.11",
     "marked": "^18.0.3",
-    "tailwindcss": "^3.4.19"
-  },
-  "overrides": {
-    "vite": "^7",
-    "@astrojs/tailwind": {
-      "astro": "$astro"
-    }
+    "tailwindcss": "^4.3.5",
+    "xss": "^1.0.17"
   },
   "devDependencies": {
     "@types/marked": "^5.0.2",
-    "wrangler": "^4.90.0"
+    "wrangler": "^4.161.0"
+  },
+  "overrides": {
+    "postcss-selector-parser": "^6.1.6"
   }
 }
