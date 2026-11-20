@@ -18,12 +18,14 @@ export const GET: APIRoute = async ({ locals }) => {
     }
 
     // Extract numeric IDs from target_id (format: "res_123")
+    // SEC-05: 截取最近 80 条，防范 SQLite/D1 参数绑定上限（通常最大 100）
     const resourceIds = bookmarks
       .map((b: any) => {
         const id = String(b.target_id).replace('res_', '');
         return parseInt(id, 10);
       })
-      .filter((id: number) => !isNaN(id));
+      .filter((id: number) => !isNaN(id))
+      .slice(0, 80);
 
     if (resourceIds.length === 0) {
       return new Response(JSON.stringify({ success: true, resources: [] }), { status: 200 });

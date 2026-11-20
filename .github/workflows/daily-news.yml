@@ -3,6 +3,10 @@ name: Manual Tech & AI News Ingestion
 on:
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
+# Explicitly declare minimal workflow permissions (Least Privilege Principle)
+permissions:
+  contents: read
+
 jobs:
   fetch-and-publish:
     runs-on: ubuntu-latest

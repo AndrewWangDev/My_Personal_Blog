@@ -36,7 +36,8 @@ export function isSafeUrl(url: unknown): string {
   if (typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (!trimmed) return '';
-  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+  // 严格相对路径判定：必须以单个 / 开头，且后接字符不得为 / 或 \，且整体不含反斜杠
+  if (trimmed === '/' || (/^\/[^/\\]/.test(trimmed) && !trimmed.includes('\\'))) {
     return trimmed;
   }
   try {

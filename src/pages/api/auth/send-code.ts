@@ -73,6 +73,15 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "该邮箱处于系统限制封禁期内，无法发送验证码" }), { status: 403 });
     }
 
+    // 0.1 检查邮箱是否已被注册（该接口仅用于注册，避免浪费邮件配额与骚扰用户）
+    const existingUser = await db.prepare("SELECT id FROM users WHERE LOWER(email) = ?").bind(email).first();
+    if (existingUser) {
+      return new Response(JSON.stringify({ error: "该邮箱已被注册，请直接前往登录" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // 1. Verify Turnstile (使用官方推荐的 URLSearchParams 格式与客户端 IP)
     const turnstileSecret = (import.meta.env as any).TURNSTILE_SECRET_KEY || (cfEnv as any).TURNSTILE_SECRET_KEY;
     if (!turnstileSecret) {

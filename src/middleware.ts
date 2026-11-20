@@ -132,6 +132,14 @@ function getFallbackClientKey(request: Request): string {
 
 export const onRequest = defineMiddleware(async (context, rawNext) => {
   const url = new URL(context.request.url);
+
+  // Canonical Host 规范化重定向：将 www 子域统一 301 永久重定向至规范裸域，对齐 Cookie 与 WebAuthn 作用域
+  if (url.hostname === 'www.andrewwangdev.com') {
+    const canonicalUrl = new URL(context.request.url);
+    canonicalUrl.hostname = 'andrewwangdev.com';
+    return Response.redirect(canonicalUrl.toString(), 301);
+  }
+
   const pathname = url.pathname;
 
   const next = async () => {

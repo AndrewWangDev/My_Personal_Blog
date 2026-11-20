@@ -32,7 +32,7 @@ try {
       <div class="flex flex-col md:flex-row gap-4 h-auto md:h-[320px]">
         {/* Left Side: Hero Item (1/2 width) */}
         {showcase.length > 0 && (
-          <a href={showcase[0].link_url} target="_blank" aria-label={showcase[0].title ? `${t['home.read_more']}: ${showcase[0].title}` : t['home.try_now']} class="group relative overflow-hidden rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-500 border border-white/10 md:w-1/2 h-[200px] md:h-full flex-shrink-0 block">
+          <a href={showcase[0].link_url} target="_blank" rel="noopener noreferrer" aria-label={showcase[0].title ? `${t['home.read_more']}: ${showcase[0].title}` : t['home.try_now']} class="group relative overflow-hidden rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-500 border border-white/10 md:w-1/2 h-[200px] md:h-full flex-shrink-0 block">
             <img src={showcase[0].image_url} alt="Showcase Hero" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" fetchpriority="high" decoding="async" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
             <div class="absolute bottom-6 right-6">
@@ -48,7 +48,7 @@ try {
         {showcase.length > 1 && (
           <div class="grid grid-cols-2 gap-4 w-full md:w-1/2 h-[200px] sm:h-[240px] md:h-full">
             {showcase.slice(1, 5).map((item) => (
-              <a href={item.link_url} target="_blank" aria-label={item.title ? `${t['home.read_more']}: ${item.title}` : t['home.read_more']} class="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-500 border border-white/10 h-full w-full block">
+              <a href={item.link_url} target="_blank" rel="noopener noreferrer" aria-label={item.title ? `${t['home.read_more']}: ${item.title}` : t['home.read_more']} class="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-500 border border-white/10 h-full w-full block">
                 <img src={item.image_url} alt="Showcase Sub" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" decoding="async" />
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3 sm:p-4">
                   <span class="inline-flex items-center space-x-1 sm:space-x-2 bg-white/20 backdrop-blur-md border border-white/30 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-xs font-bold transition-all shadow-md group-hover:-translate-y-0.5 group-hover:shadow-lg group-hover:bg-blue-600/80 group-hover:border-blue-500/50">

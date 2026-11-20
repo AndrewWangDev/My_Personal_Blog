@@ -8,6 +8,16 @@ export const DELETE: APIRoute = async ({ request, cookies, locals }) => {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
+  // 防御性拦截：禁止管理员账号通过公开个人中心自助注销
+  if (locals.user.role === 'admin') {
+    return new Response(JSON.stringify({
+      error: '管理员账号受系统保护，无法通过自助通道注销，请联系系统运维人员'
+    }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   const userId = locals.user.id;
 
   try {

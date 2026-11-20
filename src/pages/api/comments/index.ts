@@ -33,7 +33,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       const comment = { 
         id: row.id,
         content: isDeleted ? "This comment has been deleted." : row.content,
-        username: isDeleted ? "System Admin" : (row.username || "Former User"),
+        username: isDeleted ? "Deleted Comment" : (row.username || "Former User"),
         created_at: row.created_at,
         parent_id: row.parent_id,
         is_deleted: isDeleted,
