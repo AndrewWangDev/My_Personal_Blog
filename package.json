@@ -24,7 +24,6 @@
     "xss": "^1.0.17"
   },
   "devDependencies": {
-    "@types/marked": "^5.0.2",
     "wrangler": "^4.161.0"
   },
   "overrides": {

@@ -281,6 +281,22 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
             </form>
           </section>
 
+          <!-- Section 5: Multi-Device Sessions -->
+          <section>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-slate-100 mb-4 flex items-center">
+              <span class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mr-3 text-sm font-bold">5</span>
+              {t['account.sessions_title'] || '会话与多设备管理'}
+            </h2>
+            <div class="bg-gray-50 dark:bg-slate-800 p-6 rounded-2xl border border-gray-100 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 class="font-bold text-gray-900 dark:text-slate-100 mb-1">{t['account.revoke_all'] || '登出所有设备'}</h3>
+                <p class="text-sm text-gray-500 dark:text-slate-400">{t['account.revoke_all_desc'] || '主动使包含当前设备在内的所有已登录设备会话立即失效。'}</p>
+              </div>
+              <button type="button" id="btn-revoke-all-sessions" class="whitespace-nowrap px-5 py-2.5 text-sm font-bold text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 shadow-sm transition-all active:scale-95">{t['account.btn_revoke_all'] || '强制登出所有设备'}</button>
+            </div>
+          </section>
+
+          <!-- Section 6: Delete Account -->
           <section>
             <h2 class="text-lg font-bold text-red-600 dark:text-red-400 mb-4 flex items-center">
               <span class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center mr-3 text-sm">
@@ -1104,11 +1120,12 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
 
           let publicKeySpki = '';
           if (typeof credential.response.getPublicKey === 'function') {
-            const spkiBuf = credential.response.getPublicKey();
-            if (spkiBuf) publicKeySpki = bufferToBase64Url(spkiBuf);
-          } else {
-            customAlert(i18n.notice, '当前浏览器环境不支持标准 SPKI 通行密钥导出，请升级浏览器或使用 Chrome / Edge / Safari 等现代浏览器重试。', 'error');
-            return;
+            try {
+              const spkiBuf = credential.response.getPublicKey();
+              if (spkiBuf) publicKeySpki = bufferToBase64Url(spkiBuf);
+            } catch (e) {
+              // 忽略导出错误，由服务端统一从 attestationObject 中解析 COSE 公钥
+            }
           }
 
           const verifyPayload = {
@@ -1213,6 +1230,26 @@ const googleLang = googleLangMap[lang] || 'zh-CN';
         } finally {
           btn.disabled = false;
           btn.textContent = userHasPassword ? i18n.update_pwd : (i18n.set_pwd || '设置密码');
+        }
+      });
+
+      document.getElementById('btn-revoke-all-sessions')?.addEventListener('click', async () => {
+        const confirmed = await customConfirm(
+          i18n.notice || '会话吊销确认',
+          '确定要在所有设备上退出登录吗？此操作将立即吊销所有已登录设备（包括当前设备）的历史会话。'
+        );
+        if (!confirmed) return;
+        try {
+          const res = await fetch('/api/account/revoke-all-sessions', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            if (window.showToast) window.showToast('全网会话已成功吊销，正在跳转...', 'success');
+            setTimeout(() => { window.location.href = '/login'; }, 800);
+          } else {
+            customAlert(i18n.notice || '错误', data.error || '吊销会话失败', 'error');
+          }
+        } catch (e) {
+          customAlert(i18n.notice || '错误', i18n.network_error || '网络连接失败', 'error');
         }
       });
 

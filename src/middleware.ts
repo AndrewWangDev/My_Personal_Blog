@@ -143,9 +143,12 @@ export const onRequest = defineMiddleware(async (context, rawNext) => {
     if (url.protocol === 'https:') {
       res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     }
+    // 强制生效核心基线安全指令（零破坏性，无内联脚本误杀风险）
+    res.headers.set('Content-Security-Policy', "object-src 'none'; base-uri 'self'; frame-ancestors 'self'");
+    // 动态脚本与样式指令保持 Report-Only 并在异常时上报至静默端点
     res.headers.set(
       'Content-Security-Policy-Report-Only',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com; frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com; frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com; report-uri /api/internal/csp-report"
     );
     return res;
   };
@@ -187,21 +190,39 @@ export const onRequest = defineMiddleware(async (context, rawNext) => {
       const sessionSecret = getSessionSecret(env);
       const sessionInfo = await verifySignedSession(sessionId, sessionSecret);
       if (sessionInfo) {
-        const db = (env as any).DB;
-        if (db) {
-          const user = await db.prepare(`
-            SELECT u.id, u.username, u.role, u.token_version, u.email,
-                   (SELECT 1 FROM deleted_users d WHERE d.email = u.email AND d.expires_at > datetime('now')) as is_restricted
-            FROM users u WHERE u.id = ?
-          `).bind(sessionInfo.userId).first();
+        // 检查当前 Session 是否已在 KV 黑名单中（单设备主动退出吊销）
+        const sessionKv = (env as any).SESSION;
+        let isRevoked = false;
+        if (sessionKv) {
+          try {
+            const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessionId));
+            const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+            const val = await sessionKv.get(`revoked_session:${hashHex}`);
+            if (val) isRevoked = true;
+          } catch (kvErr) {
+            console.error('Session blacklist KV error:', kvErr);
+          }
+        }
 
-          if (user) {
-            const isRestricted = Boolean(user.is_restricted);
-            const userTokenVersion = Number(user.token_version || 1);
-            if (isRestricted || userTokenVersion !== sessionInfo.tokenVersion) {
-              context.cookies.delete('user_session', { path: '/' });
-            } else {
-              context.locals.user = user;
+        if (isRevoked) {
+          context.cookies.delete('user_session', { path: '/' });
+        } else {
+          const db = (env as any).DB;
+          if (db) {
+            const user = await db.prepare(`
+              SELECT u.id, u.username, u.role, u.token_version, u.email,
+                     (SELECT 1 FROM deleted_users d WHERE d.email = u.email AND d.expires_at > datetime('now')) as is_restricted
+              FROM users u WHERE u.id = ?
+            `).bind(sessionInfo.userId).first();
+
+            if (user) {
+              const isRestricted = Boolean(user.is_restricted);
+              const userTokenVersion = Number(user.token_version || 1);
+              if (isRestricted || userTokenVersion !== sessionInfo.tokenVersion) {
+                context.cookies.delete('user_session', { path: '/' });
+              } else {
+                context.locals.user = user;
+              }
             }
           }
         }

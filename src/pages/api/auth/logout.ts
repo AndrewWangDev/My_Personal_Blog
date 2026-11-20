@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { env } from "cloudflare:workers";
 
 export const POST: APIRoute = async ({ cookies, request }) => {
   const origin = request.headers.get('origin');
@@ -10,6 +11,21 @@ export const POST: APIRoute = async ({ cookies, request }) => {
   }
   if (!origin && fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
     return new Response(JSON.stringify({ error: 'Forbidden cross-site logout' }), { status: 403 });
+  }
+
+  // 1. 若当前会话存在且绑定了 KV，将 Session 哈希加入服务端黑名单（TTL 7 天对齐 Cookie 最大有效期）
+  const currentSession = cookies.get('user_session')?.value;
+  if (currentSession) {
+    const sessionKv = (env as any).SESSION;
+    if (sessionKv) {
+      try {
+        const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(currentSession));
+        const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        await sessionKv.put(`revoked_session:${hashHex}`, '1', { expirationTtl: 60 * 60 * 24 * 7 });
+      } catch (e) {
+        console.error('Failed to blacklist session in KV:', e);
+      }
+    }
   }
 
   cookies.delete('user_session', { path: '/' });
