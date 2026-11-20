@@ -29,6 +29,9 @@ jobs:
       - name: Clean Install Dependencies
         run: npm ci
 
+      - name: Prepare Mock Wrangler Config for CI
+        run: cp wrangler.example.json wrangler.json
+
       - name: Build & Astro Edge Verification
         run: npm run build
 
