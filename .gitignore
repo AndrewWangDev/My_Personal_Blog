@@ -11,6 +11,13 @@ out/
 # ==========================================
 # Miniflare local runtime state, D1 sqlite databases, kv/images caches
 .wrangler/
+wrangler.json
+wrangler.toml
+wrangler.jsonc
+
+# Preserve example template files
+!wrangler.json.example
+!wrangler.example.json
 
 # ==========================================
 # Environment Variables & Local Secrets

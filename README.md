@@ -70,7 +70,7 @@ An edge-native, high-performance personal blog and technical showcase, built wit
 │   └── middleware.ts             # Global rate-limiting, session validation, and i18n routing
 ├── schema.sql                    # Cloudflare D1 SQLite database table schema
 ├── astro.config.mjs              # Astro configuration & Cloudflare adapter setup
-├── wrangler.json                 # Cloudflare Workers bindings & D1 database mapping
+├── wrangler.json.example         # Cloudflare Workers bindings & D1 database template
 └── package.json                  # Dependencies & npm scripts
 ```
 
@@ -146,7 +146,7 @@ Create your D1 database on Cloudflare:
 ```bash
 npx wrangler d1 create my_website_db
 ```
-Update `wrangler.json` with the generated `database_id`, then apply the schema:
+Copy `wrangler.json.example` to `wrangler.json` (which is gitignored) and update with the generated `database_id` and KV namespace ID, then apply the schema:
 ```bash
 npx wrangler d1 execute DB --remote --file=schema.sql
 ```
