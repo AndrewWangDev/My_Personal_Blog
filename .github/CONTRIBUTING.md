@@ -20,8 +20,8 @@ All contributors and participants are expected to adhere to our [Code of Conduct
 ### Local Setup
 1. **Fork and Clone** the repository:
    ```bash
-   git clone https://github.com/<your-username>/My-Personal-Blog.git
-   cd My-Personal-Blog
+   git clone https://github.com/<your-username>/My_Personal_Blog.git
+   cd My_Personal_Blog
    ```
 
 2. **Install Dependencies**:
@@ -81,12 +81,11 @@ git commit -m "fix(auth): enforce strict session token version verification in m
    git push origin fix/your-issue-or-feature
    ```
 5. Open a Pull Request against `main`. Fill out all relevant sections in the PR template.
-6. Note: Maintainers will ensure changes are mirrored across both `main` and `master` branches upon merging.
 
 ---
 
 ## Questions and Support
 
-* For general questions and architecture discussions, join [GitHub Discussions](https://github.com/AndrewWangDev/My-Personal-Blog/discussions).
-* For reproducible bugs or feature ideas, please open an issue using the appropriate [Issue Template](https://github.com/AndrewWangDev/My-Personal-Blog/issues/new/choose).
+* For general questions and architecture discussions, join [GitHub Discussions](https://github.com/AndrewWangDev/My_Personal_Blog/discussions).
+* For reproducible bugs or feature ideas, please open an issue using the appropriate [Issue Template](https://github.com/AndrewWangDev/My_Personal_Blog/issues/new/choose).
 * For private security reports, please refer to [SECURITY.md](SECURITY.md).

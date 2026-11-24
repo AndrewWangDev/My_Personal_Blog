@@ -20,7 +20,7 @@ Security updates and patches are actively maintained for the following branches:
 If you discover a security vulnerability, please do **NOT** open a public issue, pull request, or discussion. Public disclosure could expose sensitive services or user data before a fix is available.
 
 ### Preferred Channel: GitHub Private Vulnerability Reporting
-Please use GitHub's native [Private Vulnerability Reporting](https://github.com/AndrewWangDev/My-Personal-Blog/security/advisories/new) feature to submit your advisory directly to the project maintainer.
+Please use GitHub's native [Private Vulnerability Reporting](https://github.com/AndrewWangDev/My_Personal_Blog/security/advisories/new) feature to submit your advisory directly to the project maintainer.
 
 ### Alternative Channel: Direct Email
 If you are unable to use the GitHub advisory tool, please email the maintainer directly:

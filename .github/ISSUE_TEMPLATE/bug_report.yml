@@ -8,7 +8,7 @@ body:
       value: |
         Thank you for reporting an issue! Please provide as much relevant detail as possible so we can reproduce and fix it quickly.
         
-        > **Security Notice**: If this is a sensitive security vulnerability, please report it via [Private Vulnerability Reporting](https://github.com/AndrewWangDev/My-Personal-Blog/security/advisories/new) or email `me@andrewwangdev.com` instead of submitting this public issue.
+        > **Security Notice**: If this is a sensitive security vulnerability, please report it via [Private Vulnerability Reporting](https://github.com/AndrewWangDev/My_Personal_Blog/security/advisories/new) or email `me@andrewwangdev.com` instead of submitting this public issue.
 
   - type: textarea
     id: description

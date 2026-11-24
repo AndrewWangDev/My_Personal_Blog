@@ -1,14 +1,14 @@
 # Andrew Wang Dev | Personal Blog & Edge Portfolio
 
-[![Astro](https://img.shields.io/badge/Astro-6.0+-BC52EE?style=flat-square&logo=astro&logoColor=white)](https://astro.build)
+[![Astro](https://img.shields.io/badge/Astro-7.0+-BC52EE?style=flat-square&logo=astro&logoColor=white)](https://astro.build)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4+-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 > 🚀 **Live Site**: [https://andrewwangdev.com](https://andrewwangdev.com)  
-> 📦 **Repository**: [https://github.com/AndrewWangDev/My-Personal-Blog](https://github.com/AndrewWangDev/My-Personal-Blog)
+> 📦 **Repository**: [https://github.com/AndrewWangDev/My_Personal_Blog](https://github.com/AndrewWangDev/My_Personal_Blog)
 
-An edge-native, high-performance personal blog and technical showcase, built with **Astro 6 (SSR)** and deployed to **Cloudflare Workers**. Powered by **Cloudflare D1** distributed SQLite database, stateless signed cookie sessions, and **Tailwind CSS**.
+An edge-native, high-performance personal blog and technical showcase, built with **Astro 7 (SSR)** and deployed to **Cloudflare Workers**. Powered by **Cloudflare D1** distributed SQLite database, stateless signed cookie sessions, and **Tailwind CSS**.
 ---
 
 ## 🌟 Key Architecture & Features
@@ -80,7 +80,7 @@ An edge-native, high-performance personal blog and technical showcase, built wit
 
 | Layer | Technology |
 | :--- | :--- |
-| **Framework** | [Astro 6](https://astro.build/) (`output: 'server'`) |
+| **Framework** | [Astro 7](https://astro.build/) (`output: 'server'`) |
 | **Edge Runtime** | [Cloudflare Workers](https://workers.cloudflare.com/) via `@astrojs/cloudflare` |
 | **Database** | [Cloudflare D1](https://developers.cloudflare.com/d1/) (Distributed Serverless SQLite) |
 | **Session & Auth** | Stateless HMAC-SHA256 Signed Cookies + [Cloudflare D1](https://developers.cloudflare.com/d1/) |
@@ -100,8 +100,8 @@ An edge-native, high-performance personal blog and technical showcase, built wit
 
 ### 2. Clone & Install Dependencies
 ```bash
-git clone https://github.com/AndrewWangDev/My-Personal-Blog.git
-cd My-Personal-Blog
+git clone https://github.com/AndrewWangDev/My_Personal_Blog.git
+cd My_Personal_Blog
 npm install
 ```
 
